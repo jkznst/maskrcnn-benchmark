@@ -5,8 +5,16 @@ import os
 
 
 class DatasetCatalog(object):
-    DATA_DIR = "datasets"
+    DATA_DIR = "/media/DataDisk/zhangxin/research/maskrcnn-benchmark/datasets"
     DATASETS = {
+        "coco_2017_train": {
+            "img_dir": "coco/train2017",
+            "ann_file": "coco/annotations/instances_train2017.json"
+        },
+        "coco_2017_val": {
+            "img_dir": "coco/val2017",
+            "ann_file": "coco/annotations/instances_val2017.json"
+        },
         "coco_2014_train": {
             "img_dir": "coco/train2014",
             "ann_file": "coco/annotations/instances_train2014.json"
@@ -68,6 +76,18 @@ class DatasetCatalog(object):
             "split": "test"
             # PASCAL VOC2012 doesn't made the test annotations available, so there's no json annotation
         },
+        "occluded_linemod_train": {
+            "data_dir": "linemod/OCCLUSION",
+            "split": "train"
+        },
+        "occluded_linemod_val": {
+            "data_dir": "linemod/OCCLUSION",
+            "split": "val"
+        },
+        "occluded_linemod_test": {
+            "data_dir": "linemod/OCCLUSION",
+            "split": "val"
+        },
         "cityscapes_fine_instanceonly_seg_train_cocostyle": {
             "img_dir": "cityscapes/images",
             "ann_file": "cityscapes/annotations/instancesonly_filtered_gtFine_train.json"
@@ -104,6 +124,17 @@ class DatasetCatalog(object):
             )
             return dict(
                 factory="PascalVOCDataset",
+                args=args,
+            )
+        elif "occluded_linemod" in name:
+            data_dir = DatasetCatalog.DATA_DIR
+            attrs = DatasetCatalog.DATASETS[name]
+            args = dict(
+                data_dir=os.path.join(data_dir, attrs["data_dir"]),
+                split=attrs["split"],
+            )
+            return dict(
+                factory="OccludedLINEMODDataset",
                 args=args,
             )
         raise RuntimeError("Dataset not available: {}".format(name))
