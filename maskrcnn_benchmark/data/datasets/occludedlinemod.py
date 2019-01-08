@@ -12,6 +12,7 @@ else:
 
 
 from maskrcnn_benchmark.structures.bounding_box import BoxList
+from maskrcnn_benchmark.structures.keypoint import BB8Keypoints
 
 
 class OccludedLINEMODDataset(torch.utils.data.Dataset):
@@ -70,12 +71,16 @@ class OccludedLINEMODDataset(torch.utils.data.Dataset):
         target = BoxList(anno["boxes"], (width, height), mode="xyxy")
         target.add_field("labels", anno["labels"])
         target.add_field("difficult", anno["difficult"])
+
+        keypoints = BB8Keypoints(anno["bb8keypoints"], (width, height))
+        target.add_field("BB8Keypoints", keypoints)
         return target
 
     def _preprocess_annotation(self, target):
         boxes = []
         gt_classes = []
         difficult_boxes = []
+        bb8_keypoints = []
         TO_REMOVE = 1
         
         for obj in target.iter("object"):
@@ -97,10 +102,14 @@ class OccludedLINEMODDataset(torch.utils.data.Dataset):
             bndbox = tuple(
                 map(lambda x: x - TO_REMOVE, list(map(int, box)))
             )
+            # bb8 normalized coordinates in range [0,1], in "xy" mode
+            bb8 = obj.find("BB8").text.split(",")
+            bb8 = [float(i) for i in bb8]
 
             boxes.append(bndbox)
             gt_classes.append(self.class_to_ind[name])
             difficult_boxes.append(difficult)
+            bb8_keypoints.append(bb8)
 
         size = target.find("size")
         im_info = tuple(map(int, (size.find("height").text, size.find("width").text)))
@@ -109,6 +118,7 @@ class OccludedLINEMODDataset(torch.utils.data.Dataset):
             "boxes": torch.tensor(boxes, dtype=torch.float32),
             "labels": torch.tensor(gt_classes),
             "difficult": torch.tensor(difficult_boxes),
+            "bb8keypoints": bb8_keypoints,
             "im_info": im_info,
         }
         return res
