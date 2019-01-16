@@ -11,11 +11,11 @@ DATASETS:
   TRAIN: ("occluded_linemod_train", )
   TEST: ("occluded_linemod_val",)
 SOLVER:
-  BASE_LR: 0.0025
+  BASE_LR: 0.005
   WEIGHT_DECAY: 0.0001
-  STEPS: (80000, 105000)
-  MAX_ITER: 120000
-  IMS_PER_BATCH: 2
+  STEPS: (40000, 52500)
+  MAX_ITER: 60000
+  IMS_PER_BATCH: 4
 TEST:
   IMS_PER_BATCH: 4
-OUTPUT_DIR: ./output/occluded_linemod/e2e_faster_rcnn_R_50_C4_1x_2gpu
+OUTPUT_DIR: ./output/occluded_linemod/e2e_faster_rcnn_R_50_C4_1x_4gpu
