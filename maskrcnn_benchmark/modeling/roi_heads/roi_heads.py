@@ -38,19 +38,6 @@ class CombinedROIHeads(torch.nn.ModuleDict):
             # this makes the API consistent during training and testing
             x, detections, loss_mask = self.mask(mask_features, detections, targets)
             losses.update(loss_mask)
-        if self.cfg.MODEL.BB8KEYPOINT_ON:
-            bb8keypoint_features = features
-            # optimization: during training, if we share the feature extractor between
-            # the box and the mask heads, then we can reuse the features already computed
-            if (
-                self.training
-                and self.cfg.MODEL.ROI_BB8KEYPOINT_HEAD.SHARE_BOX_FEATURE_EXTRACTOR
-            ):
-                bb8keypoint_features = x
-            # During training, self.bb8keypoint() will return the unaltered proposals as "detections"
-            # this makes the API consistent during training and testing
-            x, detections, loss_bb8keypoint = self.bb8keypoint(bb8keypoint_features, detections, targets)
-            losses.update(loss_bb8keypoint)
         if self.cfg.MODEL.KEYPOINT_ON:
             keypoint_features = features
             # optimization: during training, if we share the feature extractor between
@@ -64,6 +51,20 @@ class CombinedROIHeads(torch.nn.ModuleDict):
             # this makes the API consistent during training and testing
             x, detections, loss_keypoint = self.keypoint(keypoint_features, detections, targets)
             losses.update(loss_keypoint)
+        if self.cfg.MODEL.BB8KEYPOINT_ON:
+            bb8keypoint_features = features
+            # optimization: during training, if we share the feature extractor between
+            # the box and the mask heads, then we can reuse the features already computed
+            if (
+                self.training
+                and self.cfg.MODEL.ROI_BB8KEYPOINT_HEAD.SHARE_BOX_FEATURE_EXTRACTOR
+            ):
+                bb8keypoint_features = x
+            # During training, self.bb8keypoint() will return the unaltered proposals as "detections"
+            # this makes the API consistent during training and testing
+            x, detections, loss_bb8keypoint = self.bb8keypoint(bb8keypoint_features, detections, targets)
+            losses.update(loss_bb8keypoint)
+
         return x, detections, losses
 
 

@@ -12,21 +12,19 @@ from maskrcnn_benchmark.modeling.balanced_positive_negative_sampler import (
 from maskrcnn_benchmark.modeling.utils import cat
 
 
-class FastRCNNLossComputation(object):
+class BB8KeypointOffsetLossComputation(object):
     """
-    Computes the loss for Faster R-CNN.
+    Computes the loss for bb8keypoint offset.
     Also supports FPN
     """
 
-    def __init__(self, proposal_matcher, fg_bg_sampler, box_coder):
+    def __init__(self, proposal_matcher, box_coder):
         """
         Arguments:
             proposal_matcher (Matcher)
-            fg_bg_sampler (BalancedPositiveNegativeSampler)
             box_coder (BoxCoder)
         """
         self.proposal_matcher = proposal_matcher
-        self.fg_bg_sampler = fg_bg_sampler
         self.box_coder = box_coder
 
     def match_targets_to_proposals(self, proposal, target):
@@ -71,42 +69,6 @@ class FastRCNNLossComputation(object):
             regression_targets.append(regression_targets_per_image)
 
         return labels, regression_targets
-
-    def subsample(self, proposals, targets):
-        """
-        This method performs the positive/negative sampling, and return
-        the sampled proposals.
-        Note: this function keeps a state.
-
-        Arguments:
-            proposals (list[BoxList])
-            targets (list[BoxList])
-        """
-
-        labels, regression_targets = self.prepare_targets(proposals, targets)
-        sampled_pos_inds, sampled_neg_inds = self.fg_bg_sampler(labels)
-
-        proposals = list(proposals)
-        # add corresponding label and regression_targets information to the bounding boxes
-        for labels_per_image, regression_targets_per_image, proposals_per_image in zip(
-            labels, regression_targets, proposals
-        ):
-            proposals_per_image.add_field("labels", labels_per_image)
-            proposals_per_image.add_field(
-                "regression_targets", regression_targets_per_image
-            )
-
-        # distributed sampled proposals, that were obtained on all feature maps
-        # concatenated via the fg_bg_sampler, into individual feature map levels
-        for img_idx, (pos_inds_img, neg_inds_img) in enumerate(
-            zip(sampled_pos_inds, sampled_neg_inds)
-        ):
-            img_sampled_inds = torch.nonzero(pos_inds_img | neg_inds_img).squeeze(1)
-            proposals_per_image = proposals[img_idx][img_sampled_inds]
-            proposals[img_idx] = proposals_per_image
-
-        self._proposals = proposals
-        return proposals
 
     def __call__(self, class_logits, box_regression):
         """
@@ -156,7 +118,7 @@ class FastRCNNLossComputation(object):
         return classification_loss, box_loss
 
 
-def make_roi_box_loss_evaluator(cfg):
+def make_roi_bb8keypoint_offset_loss_evaluator(cfg):
     matcher = Matcher(
         cfg.MODEL.ROI_HEADS.FG_IOU_THRESHOLD,
         cfg.MODEL.ROI_HEADS.BG_IOU_THRESHOLD,
@@ -166,10 +128,6 @@ def make_roi_box_loss_evaluator(cfg):
     bbox_reg_weights = cfg.MODEL.ROI_HEADS.BBOX_REG_WEIGHTS
     box_coder = BoxCoder(weights=bbox_reg_weights)
 
-    fg_bg_sampler = BalancedPositiveNegativeSampler(
-        cfg.MODEL.ROI_HEADS.BATCH_SIZE_PER_IMAGE, cfg.MODEL.ROI_HEADS.POSITIVE_FRACTION
-    )
-
-    loss_evaluator = FastRCNNLossComputation(matcher, fg_bg_sampler, box_coder)
+    loss_evaluator = BB8KeypointOffsetLossComputation(matcher, box_coder)
 
     return loss_evaluator

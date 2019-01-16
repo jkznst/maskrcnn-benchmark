@@ -90,8 +90,6 @@ class KeypointRCNNLossComputation(object):
             neg_inds = matched_idxs == Matcher.BETWEEN_THRESHOLDS
             labels_per_image[neg_inds] = 0
 
-
-
             keypoints_per_image = matched_targets.get_field('keypoints')
             # TODO remove conditional  when better support for zero-dim is in
             # if keypoints_per_image.keypoints.numel() > 0:
