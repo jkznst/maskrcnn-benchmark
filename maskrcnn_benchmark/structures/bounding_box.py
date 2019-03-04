@@ -253,10 +253,13 @@ class BoxList(object):
 
 
 if __name__ == "__main__":
+    from keypoint import BB8Keypoints
     bbox = BoxList([[0, 0, 10, 10], [0, 0, 5, 5]], (10, 10))
-    s_bbox = bbox.resize((5, 5))
+    bb8keypoints = BB8Keypoints(keypoints=[[0,1,2,3,4,5,6,7,8], [10,11,12,13,14,15,16,17,18]], size=(10, 10))
+    bbox.add_field(field="bb8keypoint", field_data=bb8keypoints)
+    s_bbox = bbox[[0,1,0]]
     print(s_bbox)
-    print(s_bbox.bbox)
+    print(s_bbox.get_field("bb8keypoint").keypoints)
 
     t_bbox = bbox.transpose(0)
     print(t_bbox)

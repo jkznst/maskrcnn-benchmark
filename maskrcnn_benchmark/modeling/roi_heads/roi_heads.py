@@ -4,7 +4,7 @@ import torch
 from .box_head.box_head import build_roi_box_head
 from .mask_head.mask_head import build_roi_mask_head
 from .keypoint_head.keypoint_head import build_roi_keypoint_head
-# from .bb8keypoint_offset_head.bb8keypoint_offset_head import build_roi_bb8keypoint_offset_head
+from .bb8keypoint_offset_head.bb8keypoint_offset_head import build_roi_bb8keypoint_offset_head
 
 class CombinedROIHeads(torch.nn.ModuleDict):
     """
@@ -23,6 +23,7 @@ class CombinedROIHeads(torch.nn.ModuleDict):
     def forward(self, features, proposals, targets=None):
         losses = {}
         # TODO rename x to roi_box_features, if it doesn't increase memory consumption
+        # returned detections have pos/neg ratio 1:3
         x, detections, loss_box = self.box(features, proposals, targets)
         losses.update(loss_box)
         if self.cfg.MODEL.MASK_ON:
@@ -51,13 +52,13 @@ class CombinedROIHeads(torch.nn.ModuleDict):
             # this makes the API consistent during training and testing
             x, detections, loss_keypoint = self.keypoint(keypoint_features, detections, targets)
             losses.update(loss_keypoint)
-        if self.cfg.MODEL.BB8KEYPOINT_ON:
+        if self.cfg.MODEL.BB8KEYPOINT_OFFSET_ON:
             bb8keypoint_features = features
             # optimization: during training, if we share the feature extractor between
             # the box and the mask heads, then we can reuse the features already computed
             if (
                 self.training
-                and self.cfg.MODEL.ROI_BB8KEYPOINT_HEAD.SHARE_BOX_FEATURE_EXTRACTOR
+                and self.cfg.MODEL.ROI_BB8KEYPOINT_OFFSET_HEAD.SHARE_BOX_FEATURE_EXTRACTOR
             ):
                 bb8keypoint_features = x
             # During training, self.bb8keypoint() will return the unaltered proposals as "detections"
@@ -78,7 +79,7 @@ def build_roi_heads(cfg):
         roi_heads.append(("mask", build_roi_mask_head(cfg)))
     if cfg.MODEL.KEYPOINT_ON:
         roi_heads.append(("keypoint", build_roi_keypoint_head(cfg)))
-    if cfg.MODEL.BB8KEYPOINT_ON:
+    if cfg.MODEL.BB8KEYPOINT_OFFSET_ON:
         roi_heads.append(("bb8keypoint", build_roi_bb8keypoint_offset_head(cfg)))
 
     # combine individual heads in a single module

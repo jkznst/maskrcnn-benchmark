@@ -94,28 +94,6 @@ class BB8Keypoints(Keypoints):
         # 'maxx_maxy_minz': 'maxx_maxy_minz',
         # 'maxx_maxy_maxz': 'maxx_maxy_maxz'
     }
-    def __init__(self, keypoints, size, mode=None):
-        #:param keypoints: shape [num-instance, num-keypoints x 2]
-        #:param size: img-width, img-height
-        #:param mode:
-        device = keypoints.device if isinstance(keypoints, torch.Tensor) else torch.device('cpu')
-        keypoints = torch.as_tensor(keypoints, dtype=torch.float32, device=device)
-        num_instance = keypoints.shape[0]
-        # TODO remove once support or zero in dim is in
-        if num_instance > 0:
-            keypoints = keypoints.view(num_instance, -1, 2)
-            keypoints[:, :, 0] *= size[0]
-            keypoints[:, :, 1] *= size[1]
-            keypoints = torch.cat((keypoints,
-                                   2*torch.ones((keypoints.shape[0], keypoints.shape[1], 1), device=device))
-                                  , dim=-1)
-
-        # TODO should I split them?
-        # self.visibility = keypoints[..., 2]
-        self.keypoints = keypoints  # [..., :2]
-
-        self.size = size
-        self.mode = mode
 
 class PersonKeypoints(Keypoints):
     NAMES = [

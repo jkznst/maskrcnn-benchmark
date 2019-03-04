@@ -290,12 +290,30 @@ class StemWithFixedBatchNorm(nn.Module):
         x = F.max_pool2d(x, kernel_size=3, stride=2, padding=1)
         return x
 
+class StemWithFixedBatchNormWOPooling(nn.Module):
+    def __init__(self, cfg):
+        super(StemWithFixedBatchNormWOPooling, self).__init__()
+
+        out_channels = cfg.MODEL.RESNETS.STEM_OUT_CHANNELS
+
+        self.conv1 = Conv2d(
+            3, out_channels, kernel_size=7, stride=2, padding=3, bias=False
+        )
+        self.bn1 = FrozenBatchNorm2d(out_channels)
+
+    def forward(self, x):
+        x = self.conv1(x)
+        x = self.bn1(x)
+        x = F.relu_(x)
+        return x
+
 
 _TRANSFORMATION_MODULES = Registry({
     "BottleneckWithFixedBatchNorm": BottleneckWithFixedBatchNorm
 })
 
-_STEM_MODULES = Registry({"StemWithFixedBatchNorm": StemWithFixedBatchNorm})
+_STEM_MODULES = Registry({"StemWithFixedBatchNorm": StemWithFixedBatchNorm,
+                          "StemWithFixedBatchNormWOPooling": StemWithFixedBatchNormWOPooling})
 
 _STAGE_SPECS = Registry({
     "R-50-C4": ResNet50StagesTo4,
