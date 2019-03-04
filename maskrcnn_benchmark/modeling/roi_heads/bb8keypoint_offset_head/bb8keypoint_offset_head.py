@@ -7,7 +7,7 @@ from maskrcnn_benchmark.structures.bounding_box import BoxList
 from .roi_bb8keypoint_offset_feature_extractors import make_roi_bb8keypoint_offset_feature_extractor
 from .roi_bb8keypoint_offset_predictors import make_roi_bb8keypoint_offset_predictor
 from .inference import make_roi_bb8keypoint_offset_post_processor   # todo
-from .loss import make_roi_box_loss_evaluator   # todo
+from .loss import make_roi_bb8keypoint_offset_loss_evaluator   # todo
 
 def keep_only_positive_boxes(boxes):
     """
@@ -38,10 +38,11 @@ class ROIBB8KeypointHead(torch.nn.Module):
 
     def __init__(self, cfg):
         super(ROIBB8KeypointHead, self).__init__()
+        self.cfg = cfg.clone()
         self.feature_extractor = make_roi_bb8keypoint_offset_feature_extractor(cfg)
         self.predictor = make_roi_bb8keypoint_offset_predictor(cfg)
-        self.post_processor = make_roi_box_post_processor(cfg)
-        self.loss_evaluator = make_roi_box_loss_evaluator(cfg)
+        self.post_processor = make_roi_bb8keypoint_offset_post_processor(cfg)
+        self.loss_evaluator = make_roi_bb8keypoint_offset_loss_evaluator(cfg)
 
     def forward(self, features, proposals, targets=None):
         """
@@ -60,14 +61,14 @@ class ROIBB8KeypointHead(torch.nn.Module):
 
         if self.training:
             # during training, only focus on positive boxes
-            all_proposals = proposals
-            proposals, positive_inds = keep_only_positive_boxes(proposals)
-        if self.training and self.cfg.MODEL.ROI_BB8KEYPOINT_HEAD.SHARE_BOX_FEATURE_EXTRACTOR:
+            with torch.no_grad():
+                proposals = self.loss_evaluator.subsample(proposals, targets)
+
+        # extract features that will be fed to the final classifier. The
+        # feature_extractor generally corresponds to the pooler + heads
+        if self.training and self.cfg.MODEL.ROI_BB8KEYPOINT_OFFSET_HEAD.SHARE_BOX_FEATURE_EXTRACTOR:
             x = features
-            x = x[torch.cat(positive_inds, dim=0)]
         else:
-            # extract features that will be fed to the final classifier. The
-            # feature_extractor generally corresponds to the pooler + heads
             x = self.feature_extractor(features, proposals)
 
         # final classifier that converts the features into predictions
@@ -77,12 +78,12 @@ class ROIBB8KeypointHead(torch.nn.Module):
             result = self.post_processor(bb8keypoint_delta_regression, proposals)   # todo
             return x, result, {}
 
-        loss_bb8keypoint_offset_reg = self.loss_evaluator(  # todo
-            [bb8keypoint_delta_regression]
+        loss_bb8keypoint_offset_reg = self.loss_evaluator(
+            bb8keypoint_delta_regression
         )
         return (
             x,
-            all_proposals,
+            proposals,
             dict(loss_bb8keypoint_offset_reg=loss_bb8keypoint_offset_reg),
         )
 

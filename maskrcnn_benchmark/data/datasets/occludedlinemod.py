@@ -72,8 +72,17 @@ class OccludedLINEMODDataset(torch.utils.data.Dataset):
         target.add_field("labels", anno["labels"])
         target.add_field("difficult", anno["difficult"])
 
-        keypoints = BB8Keypoints(anno["bb8keypoints"], (width, height))
-        target.add_field("BB8Keypoints", keypoints)
+        keypoints = anno["bb8keypoints"]
+        num_instance = keypoints.shape[0]
+        if num_instance > 0:
+            keypoints = keypoints.view(num_instance, -1, 2)
+            keypoints[:, :, 0] *= width
+            keypoints[:, :, 1] *= height
+            keypoints = torch.cat((keypoints,
+                                   2 * torch.ones((keypoints.shape[0], keypoints.shape[1], 1)))
+                                  , dim=-1)  # set to all visible
+        keypoints = BB8Keypoints(keypoints, (width, height))
+        target.add_field("bb8keypoints", keypoints)
         return target
 
     def _preprocess_annotation(self, target):
@@ -118,7 +127,7 @@ class OccludedLINEMODDataset(torch.utils.data.Dataset):
             "boxes": torch.tensor(boxes, dtype=torch.float32),
             "labels": torch.tensor(gt_classes),
             "difficult": torch.tensor(difficult_boxes),
-            "bb8keypoints": bb8_keypoints,
+            "bb8keypoints": torch.tensor(bb8_keypoints),
             "im_info": im_info,
         }
         return res

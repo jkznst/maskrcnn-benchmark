@@ -4,7 +4,7 @@ import torch
 from .box_head.box_head import build_roi_box_head
 from .mask_head.mask_head import build_roi_mask_head
 from .keypoint_head.keypoint_head import build_roi_keypoint_head
-from .bb8keypoint_offset_head.bb8keypoint_offset_head import build_roi_bb8keypoint_offset_head
+from .bb8keypoint_head.bb8keypoint_head import build_roi_bb8keypoint_head
 
 class CombinedROIHeads(torch.nn.ModuleDict):
     """
@@ -85,7 +85,7 @@ def build_roi_heads(cfg, in_channels):
     if cfg.MODEL.KEYPOINT_ON:
         roi_heads.append(("keypoint", build_roi_keypoint_head(cfg, in_channels)))
     if cfg.MODEL.BB8KEYPOINT_OFFSET_ON:
-        roi_heads.append(("bb8keypoint", build_roi_bb8keypoint_offset_head(cfg)))   #todo: update
+        roi_heads.append(("bb8keypoint", build_roi_bb8keypoint_head(cfg, in_channels)))   #todo: update
 
     # combine individual heads in a single module
     if roi_heads:
