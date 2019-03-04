@@ -4,7 +4,7 @@ from torch.nn import functional as F
 from maskrcnn_benchmark.modeling.matcher import Matcher
 
 from maskrcnn_benchmark.modeling.balanced_positive_negative_sampler import (
-    BalancedPositiveNegativeSampler
+    BalancedPositiveNegativeSampler,
 )
 from maskrcnn_benchmark.structures.boxlist_ops import boxlist_iou
 from maskrcnn_benchmark.modeling.utils import cat
@@ -15,14 +15,19 @@ from maskrcnn_benchmark.structures.keypoint import keypoints_to_heat_map
 
 
 def project_keypoints_to_heatmap(keypoints, proposals, discretization_size):
-    proposals = proposals.convert('xyxy')
-    return keypoints_to_heat_map(keypoints.keypoints, proposals.bbox, discretization_size)
+
+    proposals = proposals.convert("xyxy")
+    return keypoints_to_heat_map(
+        keypoints.keypoints, proposals.bbox, discretization_size
+    )
 
 
 def cat_boxlist_with_keypoints(boxlists):
     assert all(boxlist.has_field("keypoints") for boxlist in boxlists)
 
-    kp = [boxlist.get_field('keypoints').keypoints for boxlist in boxlists]
+
+    kp = [boxlist.get_field("keypoints").keypoints for boxlist in boxlists]
+
     kp = cat(kp, 0)
 
     fields = boxlists[0].get_fields()
@@ -40,14 +45,17 @@ def _within_box(points, boxes):
     boxes: Nx4
     output: NxK
     """
-    x_within = (points[..., 0] >= boxes[:, 0, None]) & (points[..., 0] <= boxes[:, 2, None])
-    y_within = (points[..., 1] >= boxes[:, 1, None]) & (points[..., 1] <= boxes[:, 3, None])
+
+    x_within = (points[..., 0] >= boxes[:, 0, None]) & (
+        points[..., 0] <= boxes[:, 2, None]
+    )
+    y_within = (points[..., 1] >= boxes[:, 1, None]) & (
+        points[..., 1] <= boxes[:, 3, None]
+    )
     return x_within & y_within
 
-_TOTAL_SKIPPED = 0
 
 class KeypointRCNNLossComputation(object):
-
     def __init__(self, proposal_matcher, fg_bg_sampler, discretization_size):
         """
         Arguments:
@@ -87,13 +95,15 @@ class KeypointRCNNLossComputation(object):
             # this can probably be removed, but is left here for clarity
             # and completeness
             # TODO check if this is the right one, as BELOW_THRESHOLD
-            neg_inds = matched_idxs == Matcher.BETWEEN_THRESHOLDS
+
+            neg_inds = matched_idxs == Matcher.BELOW_LOW_THRESHOLD
             labels_per_image[neg_inds] = 0
 
-            keypoints_per_image = matched_targets.get_field('keypoints')
-            # TODO remove conditional  when better support for zero-dim is in
-            # if keypoints_per_image.keypoints.numel() > 0:
-            within_box = _within_box(keypoints_per_image.keypoints, matched_targets.bbox)
+            keypoints_per_image = matched_targets.get_field("keypoints")
+            within_box = _within_box(
+                keypoints_per_image.keypoints, matched_targets.bbox
+            )
+
             vis_kp = keypoints_per_image.keypoints[..., 2] > 0
             is_visible = (within_box & vis_kp).sum(1) > 0
 
@@ -103,7 +113,6 @@ class KeypointRCNNLossComputation(object):
             keypoints.append(keypoints_per_image)
 
         return labels, keypoints
-
 
     def subsample(self, proposals, targets):
         """
@@ -125,16 +134,14 @@ class KeypointRCNNLossComputation(object):
             labels, keypoints, proposals
         ):
             proposals_per_image.add_field("labels", labels_per_image)
-            proposals_per_image.add_field(
-                "keypoints", keypoints_per_image
-            )
+
+            proposals_per_image.add_field("keypoints", keypoints_per_image)
 
         # distributed sampled proposals, that were obtained on all feature maps
         # concatenated via the fg_bg_sampler, into individual feature map levels
         for img_idx, (pos_inds_img, neg_inds_img) in enumerate(
             zip(sampled_pos_inds, sampled_neg_inds)
         ):
-            # img_sampled_inds = torch.nonzero(pos_inds_img | neg_inds_img).squeeze(1)
             img_sampled_inds = torch.nonzero(pos_inds_img).squeeze(1)
             proposals_per_image = proposals[img_idx][img_sampled_inds]
             proposals[img_idx] = proposals_per_image
@@ -147,7 +154,10 @@ class KeypointRCNNLossComputation(object):
         valid = []
         for proposals_per_image in proposals:
             kp = proposals_per_image.get_field("keypoints")
-            heatmaps_per_image, valid_per_image = project_keypoints_to_heatmap(kp, proposals_per_image, self.discretization_size)
+
+            heatmaps_per_image, valid_per_image = project_keypoints_to_heatmap(
+                kp, proposals_per_image, self.discretization_size
+            )
             heatmaps.append(heatmaps_per_image.view(-1))
             valid.append(valid_per_image.view(-1))
 
@@ -155,22 +165,15 @@ class KeypointRCNNLossComputation(object):
         valid = cat(valid, dim=0).to(dtype=torch.uint8)
         valid = torch.nonzero(valid).squeeze(1)
 
-
-        MIN_KEYPOINT_COUNT_FOR_VALID_MINIBATCH = 20
-        num_valid = len(valid)
         # torch.mean (in binary_cross_entropy_with_logits) does'nt
         # accept empty tensors, so handle it sepaartely
-        if keypoint_targets.numel() == 0 or valid.numel() == 0 or num_valid <= MIN_KEYPOINT_COUNT_FOR_VALID_MINIBATCH:
-            global _TOTAL_SKIPPED
-            _TOTAL_SKIPPED += 1
-            print("Non valid, skipping {}", _TOTAL_SKIPPED)
+        if keypoint_targets.numel() == 0 or len(valid) == 0:
             return keypoint_logits.sum() * 0
 
         N, K, H, W = keypoint_logits.shape
         keypoint_logits = keypoint_logits.view(N * K, H * W)
 
-        keypoint_loss = F.cross_entropy(
-                keypoint_logits[valid], keypoint_targets[valid])
+        keypoint_loss = F.cross_entropy(keypoint_logits[valid], keypoint_targets[valid])
         return keypoint_loss
 
 

@@ -39,6 +39,7 @@ class CombinedROIHeads(torch.nn.ModuleDict):
             # this makes the API consistent during training and testing
             x, detections, loss_mask = self.mask(mask_features, detections, targets)
             losses.update(loss_mask)
+
         if self.cfg.MODEL.KEYPOINT_ON:
             keypoint_features = features
             # optimization: during training, if we share the feature extractor between
@@ -52,6 +53,7 @@ class CombinedROIHeads(torch.nn.ModuleDict):
             # this makes the API consistent during training and testing
             x, detections, loss_keypoint = self.keypoint(keypoint_features, detections, targets)
             losses.update(loss_keypoint)
+
         if self.cfg.MODEL.BB8KEYPOINT_OFFSET_ON:
             bb8keypoint_features = features
             # optimization: during training, if we share the feature extractor between
@@ -69,18 +71,21 @@ class CombinedROIHeads(torch.nn.ModuleDict):
         return x, detections, losses
 
 
-def build_roi_heads(cfg):
+def build_roi_heads(cfg, in_channels):
     # individually create the heads, that will be combined together
     # afterwards
     roi_heads = []
+    if cfg.MODEL.RETINANET_ON:
+        return []
+
     if not cfg.MODEL.RPN_ONLY:
-        roi_heads.append(("box", build_roi_box_head(cfg)))
+        roi_heads.append(("box", build_roi_box_head(cfg, in_channels)))
     if cfg.MODEL.MASK_ON:
-        roi_heads.append(("mask", build_roi_mask_head(cfg)))
+        roi_heads.append(("mask", build_roi_mask_head(cfg, in_channels)))
     if cfg.MODEL.KEYPOINT_ON:
-        roi_heads.append(("keypoint", build_roi_keypoint_head(cfg)))
+        roi_heads.append(("keypoint", build_roi_keypoint_head(cfg, in_channels)))
     if cfg.MODEL.BB8KEYPOINT_OFFSET_ON:
-        roi_heads.append(("bb8keypoint", build_roi_bb8keypoint_offset_head(cfg)))
+        roi_heads.append(("bb8keypoint", build_roi_bb8keypoint_offset_head(cfg)))   #todo: update
 
     # combine individual heads in a single module
     if roi_heads:
