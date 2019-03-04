@@ -25,7 +25,7 @@ class BoxList(object):
             )
         if bbox.size(-1) != 4:
             raise ValueError(
-                "last dimenion of bbox should have a "
+                "last dimension of bbox should have a "
                 "size of 4, got {}".format(bbox.size(-1))
             )
         if mode not in ("xyxy", "xywh"):
@@ -232,15 +232,18 @@ class BoxList(object):
             area = box[:, 2] * box[:, 3]
         else:
             raise RuntimeError("Should not be here")
-            
+
         return area
 
-    def copy_with_fields(self, fields):
+    def copy_with_fields(self, fields, skip_missing=False):
         bbox = BoxList(self.bbox, self.size, self.mode)
         if not isinstance(fields, (list, tuple)):
             fields = [fields]
         for field in fields:
-            bbox.add_field(field, self.get_field(field))
+            if self.has_field(field):
+                bbox.add_field(field, self.get_field(field))
+            elif not skip_missing:
+                raise KeyError("Field '{}' not found in {}".format(field, self))
         return bbox
 
     def __repr__(self):
@@ -253,10 +256,13 @@ class BoxList(object):
 
 
 if __name__ == "__main__":
+    from keypoint import BB8Keypoints
     bbox = BoxList([[0, 0, 10, 10], [0, 0, 5, 5]], (10, 10))
-    s_bbox = bbox.resize((5, 5))
+    bb8keypoints = BB8Keypoints(keypoints=[[0,1,2,3,4,5,6,7,8], [10,11,12,13,14,15,16,17,18]], size=(10, 10))
+    bbox.add_field(field="bb8keypoint", field_data=bb8keypoints)
+    s_bbox = bbox[[0,1,0]]
     print(s_bbox)
-    print(s_bbox.bbox)
+    print(s_bbox.get_field("bb8keypoint").keypoints)
 
     t_bbox = bbox.transpose(0)
     print(t_bbox)

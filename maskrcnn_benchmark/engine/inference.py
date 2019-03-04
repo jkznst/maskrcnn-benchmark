@@ -8,8 +8,8 @@ import torch
 from tqdm import tqdm
 
 from maskrcnn_benchmark.data.datasets.evaluation import evaluate
-from ..utils.comm import is_main_process
-from ..utils.comm import scatter_gather
+from ..utils.comm import is_main_process, get_world_size
+from ..utils.comm import all_gather
 from ..utils.comm import synchronize
 
 
@@ -30,7 +30,7 @@ def compute_on_dataset(model, data_loader, device):
 
 
 def _accumulate_predictions_from_multiple_gpus(predictions_per_gpu):
-    all_predictions = scatter_gather(predictions_per_gpu)
+    all_predictions = all_gather(predictions_per_gpu)
     if not is_main_process():
         return
     # merge the list of dicts
@@ -64,11 +64,7 @@ def inference(
 ):
     # convert to a torch.device for efficiency
     device = torch.device(device)
-    num_devices = (
-        torch.distributed.get_world_size()
-        if torch.distributed.is_initialized()
-        else 1
-    )
+    num_devices = get_world_size()
     logger = logging.getLogger("maskrcnn_benchmark.inference")
     dataset = data_loader.dataset
     logger.info("Start evaluation on {} dataset({} images).".format(dataset_name, len(dataset)))
